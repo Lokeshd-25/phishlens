@@ -55,7 +55,7 @@ if uploaded_file is not None:
             
             with st.spinner("Running forensic analysis..."):
                 result = subprocess.run(
-                    [sys.executable, "backend/main.py"],
+                   [sys.executable, "main.py"]
                     capture_output=True,
                     text=True
                 )
