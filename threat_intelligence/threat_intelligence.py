@@ -63,7 +63,7 @@ def analyze_threat_intelligence():
         print("Checking:", url)
 
         result = safe_api_call(check_url, url)
-
+        print("DEBUG URLhaus result:", repr(result))
       
         if isinstance(result, dict) and "data" in result:
             stats = result["data"]["attributes"].get(
