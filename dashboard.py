@@ -525,30 +525,40 @@ st.header("🔎 Threat Intelligence")
 # VIRUSTOTAL - URLS
 # ==========================================
 
+# VirusTotal — URLs
 st.subheader("VirusTotal — URLs")
 
-virustotal_data = threat_intelligence.get(
-    "virustotal",
-    {}
-)
+vt_data = threat_intelligence.get("virustotal", {})
+vt_urls = vt_data.get("urls", [])
 
-virustotal_urls = virustotal_data.get(
-    "urls",
-    []
-)
+if vt_urls:
+    for item in vt_urls:
+        url = item.get("url", "Unknown URL")
+        status = str(item.get("status", "UNKNOWN")).upper()
 
-if virustotal_urls:
-    for result in virustotal_urls:
-        st.write(
-            f"URL: {result.get('url', 'Unknown')}"
-        )
+        st.write(f"URL: {url}")
 
-        st.write(
-            f"Malicious: {result.get('malicious', 'UNKNOWN')} | "
-            f"Suspicious: {result.get('suspicious', 'UNKNOWN')} | "
-            f"Harmless: {result.get('harmless', 'UNKNOWN')} | "
-            f"Undetected: {result.get('undetected', 'UNKNOWN')}"
-        )
+        if status == "NOT_ANALYZED":
+            st.info(
+                "No existing VirusTotal analysis was found. "
+                "This does not mean the URL is safe."
+            )
+        elif status in ("API_ERROR", "REQUEST_ERROR"):
+            st.warning(
+                f"VirusTotal could not complete the check: {status}"
+            )
+        else:
+            counts = item.get("stats") or item.get("last_analysis_stats")
+
+            if counts:
+                st.write(
+                    f"Malicious: {counts.get('malicious', 'UNKNOWN')} | "
+                    f"Suspicious: {counts.get('suspicious', 'UNKNOWN')} | "
+                    f"Harmless: {counts.get('harmless', 'UNKNOWN')} | "
+                    f"Undetected: {counts.get('undetected', 'UNKNOWN')}"
+                )
+            else:
+                st.info(f"VirusTotal status: {status}")
 
         st.divider()
 else:
