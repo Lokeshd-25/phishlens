@@ -7,6 +7,10 @@ from urlhaus import check_url as urlhaus_check_url
 from abuseipdb import check_ip
 
 
+# ==========================================
+# SAFE API CALL
+# ==========================================
+
 def safe_api_call(function, value):
     try:
         return function(value)
@@ -28,6 +32,10 @@ def safe_api_call(function, value):
         return None
 
 
+# ==========================================
+# LOAD FORENSIC ANALYSIS
+# ==========================================
+
 def load_analysis_result():
     with open(
         "output/analysis_result.json",
@@ -37,13 +45,19 @@ def load_analysis_result():
         return json.load(file)
 
 
+# ==========================================
+# THREAT INTELLIGENCE ANALYSIS
+# ==========================================
+
 def analyze_threat_intelligence():
     analysis = load_analysis_result()
 
     urls = analysis.get("content", {}).get("urls", [])
+
     ip_addresses = analysis.get(
         "network_indicators", {}
     ).get("ip_addresses", [])
+
     attachments = analysis.get("attachments", [])
 
     results = {
@@ -55,20 +69,20 @@ def analyze_threat_intelligence():
         "abuseipdb": []
     }
 
-    # -----------------------------
-    # VirusTotal URL Analysis
-    # -----------------------------
+    # ------------------------------------------
+    # VIRUSTOTAL URL ANALYSIS
+    # ------------------------------------------
+
     for url in urls:
         print("\n===== VirusTotal URL =====")
         print("Checking:", url)
 
         result = safe_api_call(check_url, url)
-        print("DEBUG URLhaus result:", repr(result))
-      
+
         if isinstance(result, dict) and "data" in result:
-            stats = result["data"]["attributes"].get(
-                "last_analysis_stats", {}
-            )
+            stats = result["data"].get(
+                "attributes", {}
+            ).get("last_analysis_stats", {})
 
             results["virustotal"]["urls"].append({
                 "url": url,
@@ -79,15 +93,16 @@ def analyze_threat_intelligence():
             })
 
         elif isinstance(result, dict):
-            status = result.get("status", "UNKNOWN")
+            api_status = result.get("status", "UNKNOWN")
+
+            if api_status == "NOT_FOUND":
+                display_status = "NOT_ANALYZED"
+            else:
+                display_status = api_status
 
             results["virustotal"]["urls"].append({
                 "url": url,
-                "status": (
-                    "NOT_ANALYZED"
-                    if status == "NOT_FOUND"
-                    else status
-                )
+                "status": display_status
             })
 
         else:
@@ -96,10 +111,10 @@ def analyze_threat_intelligence():
                 "status": "UNKNOWN"
             })
 
+    # ------------------------------------------
+    # VIRUSTOTAL ATTACHMENT ANALYSIS
+    # ------------------------------------------
 
-    # -----------------------------
-    # VirusTotal Attachment Analysis
-    # -----------------------------
     for attachment in attachments:
         filename = attachment.get("filename", "unknown")
         file_hash = attachment.get("sha256", "")
@@ -108,10 +123,19 @@ def analyze_threat_intelligence():
         print("Checking:", filename)
         print("SHA-256:", file_hash)
 
-        result = safe_api_call(check_hash, file_hash) if file_hash else None
+        if not file_hash:
+            results["virustotal"]["attachments"].append({
+                "filename": filename,
+                "status": "MISSING_HASH"
+            })
+            continue
+
+        result = safe_api_call(check_hash, file_hash)
 
         if isinstance(result, dict) and "data" in result:
-            stats = result["data"]["attributes"]["last_analysis_stats"]
+            stats = result["data"].get(
+                "attributes", {}
+            ).get("last_analysis_stats", {})
 
             results["virustotal"]["attachments"].append({
                 "filename": filename,
@@ -121,6 +145,20 @@ def analyze_threat_intelligence():
                 "harmless": stats.get("harmless", 0),
                 "undetected": stats.get("undetected", 0)
             })
+
+        elif isinstance(result, dict):
+            api_status = result.get("status", "UNKNOWN")
+
+            results["virustotal"]["attachments"].append({
+                "filename": filename,
+                "sha256": file_hash,
+                "status": (
+                    "NOT_ANALYZED"
+                    if api_status == "NOT_FOUND"
+                    else api_status
+                )
+            })
+
         else:
             results["virustotal"]["attachments"].append({
                 "filename": filename,
@@ -128,68 +166,86 @@ def analyze_threat_intelligence():
                 "status": "UNKNOWN"
             })
 
-  # -----------------------------
-# URLhaus Analysis
-# -----------------------------
-for url in urls:
-    print("\n===== URLhaus =====")
-    print("Checking:", url)
+    # ------------------------------------------
+    # URLHAUS ANALYSIS
+    # ------------------------------------------
 
-    result = safe_api_call(urlhaus_check_url, url)
-    print("DEBUG URLhaus result:", repr(result))
+    for url in urls:
+        print("\n===== URLhaus =====")
+        print("Checking:", url)
 
-    if isinstance(result, dict):
-        query_status = result.get("query_status")
+        result = safe_api_call(urlhaus_check_url, url)
 
-        if query_status == "no_results":
-            status = "NO_LISTING_FOUND"
-        elif query_status == "ok":
-            status = "LISTED"
-        elif result.get("error"):
-            status = "ERROR"
+        print("DEBUG URLhaus result:", repr(result))
+
+        if isinstance(result, dict):
+            query_status = result.get("query_status")
+
+            if query_status == "no_results":
+                status = "NO_LISTING_FOUND"
+
+            elif query_status == "ok":
+                status = "LISTED"
+
+            elif result.get("error"):
+                status = "ERROR"
+
+            else:
+                status = result.get("status", "UNKNOWN")
+
+            results["urlhaus"].append({
+                "url": url,
+                "status": status,
+                "result": result
+            })
+
         else:
-            status = "UNKNOWN"
+            results["urlhaus"].append({
+                "url": url,
+                "status": "ERROR"
+            })
 
-        results["urlhaus"].append({
-            "url": url,
-            "status": status,
-            "result": result
-        })
-    else:
-        results["urlhaus"].append({
-            "url": url,
-            "status": "ERROR"
-        })
+    # ------------------------------------------
+    # ABUSEIPDB ANALYSIS
+    # ------------------------------------------
 
-    # -----------------------------
-    # AbuseIPDB Analysis
-    # -----------------------------
     for ip in ip_addresses:
         print("\n===== AbuseIPDB =====")
         print("Checking:", ip)
 
         result = safe_api_call(check_ip, ip)
 
-        if isinstance(result, dict) and isinstance(result.get("data"), dict):
+        if (
+            isinstance(result, dict)
+            and isinstance(result.get("data"), dict)
+        ):
             data = result["data"]
 
             results["abuseipdb"].append({
                 "ip": ip,
-                "abuse_confidence_score": data.get("abuseConfidenceScore"),
+                "abuse_confidence_score": data.get(
+                    "abuseConfidenceScore"
+                ),
                 "country_code": data.get("countryCode"),
                 "isp": data.get("isp"),
                 "domain": data.get("domain"),
                 "is_tor": data.get("isTor"),
                 "total_reports": data.get("totalReports")
             })
+
         else:
             results["abuseipdb"].append({
                 "ip": ip,
                 "status": "UNKNOWN"
             })
 
+    # IMPORTANT: This return belongs inside the function.
     return results
 
+
+# ==========================================
+# MAIN EXECUTION
+# ==========================================
 
 if __name__ == "__main__":
     threat_results = analyze_threat_intelligence()
@@ -198,11 +254,19 @@ if __name__ == "__main__":
     print("THREAT INTELLIGENCE SUMMARY")
     print("===================================")
 
-    print(json.dumps(threat_results, indent=4))
+    print(json.dumps(
+        threat_results,
+        indent=4,
+        ensure_ascii=False
+    ))
 
     output_file = "output/threat_intelligence.json"
 
-    with open(output_file, "w", encoding="utf-8") as file:
+    with open(
+        output_file,
+        "w",
+        encoding="utf-8"
+    ) as file:
         json.dump(
             threat_results,
             file,
