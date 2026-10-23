@@ -5,8 +5,9 @@ from dotenv import load_dotenv
 
 
 load_dotenv()
+import streamlit as st
 
-AUTH_KEY = os.getenv("URLHAUS_AUTH_KEY")
+AUTH_KEY = os.getenv("URLHAUS_AUTH_KEY") or st.secrets.get("URLHAUS_AUTH_KEY", "")
 
 URLHAUS_API = "https://urlhaus-api.abuse.ch/v1/url/"
 
