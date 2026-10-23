@@ -3,7 +3,10 @@ import os
 import sys
 import subprocess
 import streamlit as st
-
+# Pass Streamlit Secrets to backend Python scripts
+for key in ["VIRUSTOTAL_API_KEY", "URLHAUS_AUTH_KEY"]:
+    if key in st.secrets:
+        os.environ[key] = str(st.secrets[key])
 # ==========================================
 # SESSION STATE
 # ==========================================
