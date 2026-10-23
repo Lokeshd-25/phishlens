@@ -43,7 +43,7 @@ uploaded_file = st.file_uploader(
 if uploaded_file is not None:
     st.success(f"Selected file: {uploaded_file.name}")
 
-    if st.button("🔍 Analyze Email", type="primary"):
+       if st.button("🔍 Analyze Email", type="primary"):
         try:
             email_path = os.path.join("samples", "phishing_test.eml")
 
@@ -53,9 +53,9 @@ if uploaded_file is not None:
                 file.write(uploaded_file.getbuffer())
 
             
-            with st.spinner("Running forensic analysis..."):
+                       with st.spinner("Running forensic analysis..."):
                 result = subprocess.run(
-                   [sys.executable, "main.py"]
+                    [sys.executable, "main.py"],
                     capture_output=True,
                     text=True
                 )
