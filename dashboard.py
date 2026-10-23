@@ -52,11 +52,22 @@ if uploaded_file is not None:
             with open(email_path, "wb") as file:
                 file.write(uploaded_file.getbuffer())
 
+            
             with st.spinner("Running forensic analysis..."):
-                subprocess.run(
+                result = subprocess.run(
                     [sys.executable, "backend/main.py"],
-                    check=True
+                    capture_output=True,
+                    text=True
                 )
+
+                if result.returncode != 0:
+                    st.error("Backend analysis failed. Actual error:")
+                    st.code(result.stderr or result.stdout or "No error details returned.")
+                    st.stop()
+
+                if result.stdout:
+                    st.text(result.stdout)
+
 
             with st.spinner("Running threat intelligence checks..."):
                 subprocess.run(
