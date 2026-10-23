@@ -581,32 +581,45 @@ else:
     st.info("No VirusTotal attachment results available.")
 
 
+
 # ==========================================
 # URLHAUS
 # ==========================================
 
 st.subheader("URLhaus")
 
-urlhaus_results = threat_intelligence.get(
-    "urlhaus",
-    []
-)
+urlhaus_results = threat_intelligence.get("urlhaus", [])
 
 if urlhaus_results:
     for result in urlhaus_results:
-        query_status = result.get(
-            "result",
-            {}
-        ).get(
-            "query_status",
-            result.get("status", "UNKNOWN")
-        )
+        url = result.get("url", "Unknown URL")
+        details = result.get("result", {})
 
-        st.write(
-            f"{result.get('url', 'Unknown URL')} → {query_status}"
-        )
+        query_status = str(
+            details.get(
+                "query_status",
+                result.get("status", "UNKNOWN")
+            )
+        ).lower()
+
+        if query_status == "no_results":
+            st.info(
+                f"{url} → NO LISTING FOUND. "
+                "URLhaus returned no matching listing; "
+                "this does not prove the URL is safe."
+            )
+        elif query_status == "ok":
+            st.error(f"{url} → LISTED in URLhaus")
+        elif query_status in ("error", "unauthorized"):
+            st.warning(
+                f"{url} → URLhaus check failed: {query_status}"
+            )
+        else:
+            st.write(f"{url} → {query_status.upper()}")
+
 else:
     st.info("No URLhaus results available.")
+
 
 
 # ==========================================
