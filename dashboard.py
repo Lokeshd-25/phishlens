@@ -565,28 +565,29 @@ else:
     st.info("No VirusTotal URL results available.")
 
 
+
 # ==========================================
 # VIRUSTOTAL - ATTACHMENTS
 # ==========================================
 
 st.subheader("VirusTotal — Attachments")
 
-virustotal_attachments = virustotal_data.get(
-    "attachments",
-    []
-)
+# Read the VirusTotal results safely
+vt_data = threat_intelligence.get("virustotal", {})
+virustotal_attachments = vt_data.get("attachments", [])
 
 if virustotal_attachments:
-    for result in virustotal_attachments:
-        st.write(
-            f"File: {result.get('filename', 'Unknown')}"
-        )
+    for item in virustotal_attachments:
+        st.write(f"Filename: {item.get('filename', 'Unknown')}")
 
-        st.write(
-            f"Status: {result.get('status', 'Unknown')}"
-        )
+        status = str(item.get("status", "UNKNOWN")).upper()
 
-        st.divider()
+        if status == "NOT_FOUND":
+            st.info("No existing VirusTotal report was found for this attachment hash.")
+        elif status in ("API_ERROR", "REQUEST_ERROR"):
+            st.warning(f"VirusTotal check failed: {status}")
+        else:
+            st.write(f"Status: {status}")
 else:
     st.info("No VirusTotal attachment results available.")
 
