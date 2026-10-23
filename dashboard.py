@@ -89,8 +89,9 @@ if uploaded_file is not None:
 
                 if result.stdout:
                     st.text(result.stdout)
-                    if result.stderr:
-    st.code(result.stderr)
+
+                if result.stderr:
+                    st.code(result.stderr)
 
             # ------------------------------------------
             # ROLE 2 - THREAT INTELLIGENCE
