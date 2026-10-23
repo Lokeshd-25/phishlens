@@ -33,6 +33,8 @@ def check_url(url):
         )
 
         print("URLhaus HTTP Status:", response.status_code)
+        print("URLhaus key loaded:", bool(AUTH_KEY))
+        print("URLhaus response body:", response.text[:500])
 
         if response.status_code != 200:
             print("URLhaus response:", response.text[:1000])
