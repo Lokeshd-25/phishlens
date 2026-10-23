@@ -128,37 +128,38 @@ def analyze_threat_intelligence():
                 "status": "UNKNOWN"
             })
 
-    # -----------------------------
-    # URLhaus Analysis
-    # -----------------------------
-    for url in urls:
-        print("\n===== URLhaus =====")
-        print("Checking:", url)
+  # -----------------------------
+# URLhaus Analysis
+# -----------------------------
+for url in urls:
+    print("\n===== URLhaus =====")
+    print("Checking:", url)
 
-        result = safe_api_call(urlhaus_check_url, url)
+    result = safe_api_call(urlhaus_check_url, url)
+    print("DEBUG URLhaus result:", repr(result))
 
-        if isinstance(result, dict):
-            query_status = result.get("query_status", "")
+    if isinstance(result, dict):
+        query_status = result.get("query_status")
 
-            if query_status == "no_results":
-                status = "NO_LISTING_FOUND"
-            elif query_status == "ok":
-                status = "LISTED"
-            elif "error" in result:
-                status = "ERROR"
-            else:
-                status = "UNKNOWN"
-
-            results["urlhaus"].append({
-                "url": url,
-                "status": status,
-                "result": result
-            })
+        if query_status == "no_results":
+            status = "NO_LISTING_FOUND"
+        elif query_status == "ok":
+            status = "LISTED"
+        elif result.get("error"):
+            status = "ERROR"
         else:
-            results["urlhaus"].append({
-                "url": url,
-                "status": "UNKNOWN"
-            })
+            status = "UNKNOWN"
+
+        results["urlhaus"].append({
+            "url": url,
+            "status": status,
+            "result": result
+        })
+    else:
+        results["urlhaus"].append({
+            "url": url,
+            "status": "ERROR"
+        })
 
     # -----------------------------
     # AbuseIPDB Analysis
