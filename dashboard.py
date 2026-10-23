@@ -1,111 +1,128 @@
-        )
+import json
+import os
+import sys
+import subprocess
+import streamlit as st
+# Pass Streamlit Secrets to backend Python scripts
+for key in ["VIRUSTOTAL_API_KEY", "URLHAUS_AUTH_KEY"]:
+    if key in st.secrets:
+        os.environ[key] = str(st.secrets[key])
+# ==========================================
+# SESSION STATE
+# ==========================================
 
-        st.divider()
-else:
-    st.info("No VirusTotal attachment results available.")
+if "analysis_ready" not in st.session_state:
+    st.session_state.analysis_ready = False
 
 
 # ==========================================
-# URLHAUS
+# PAGE CONFIGURATION
 # ==========================================
 
-st.subheader("URLhaus")
-
-urlhaus_results = threat_intelligence.get(
-    "urlhaus",
-    []
+st.set_page_config(
+    page_title="Phishing Email Forensics",
+    page_icon="🛡️",
+    layout="wide"
 )
 
-if urlhaus_results:
-    for result in urlhaus_results:
-        query_status = result.get(
-            "result",
-            {}
-        ).get(
-            "query_status",
-            result.get("status", "UNKNOWN")
-        )
-
-        st.write(
-            f"{result.get('url', 'Unknown URL')} → {query_status}"
-        )
-else:
-    st.info("No URLhaus results available.")
-
 
 # ==========================================
-# ABUSEIPDB
+# TITLE
 # ==========================================
 
-st.subheader("AbuseIPDB")
-
-abuseipdb_results = threat_intelligence.get(
-    "abuseipdb",
-    []
-)
-
-if abuseipdb_results:
-    for result in abuseipdb_results:
-        st.write(
-            f"IP: {result.get('ip', 'Unknown')} | "
-            f"Abuse Confidence: "
-            f"{result.get('abuse_confidence_score', 'UNKNOWN')} | "
-            f"Reports: {result.get('total_reports', 'UNKNOWN')}"
-        )
-else:
-    st.info("No AbuseIPDB results available.")
-
-
-# ==========================================
-# DOWNLOAD REPORTS
-# ==========================================
-
-st.divider()
-
-st.header("📥 Download Forensic Reports")
-
-col1, col2 = st.columns(2)
-
-with col1:
-    html_report = "output/forensic_report.html"
-
-    if os.path.exists(html_report):
-        with open(html_report, "rb") as file:
-            html_data = file.read()
-
-        st.download_button(
-            label="📄 Download HTML Report",
-            data=html_data,
-            file_name="forensic_report.html",
-            mime="text/html"
-        )
-    else:
-        st.info("HTML report is not available.")
-
-with col2:
-    pdf_report = "output/forensic_report.pdf"
-
-    if os.path.exists(pdf_report):
-        with open(pdf_report, "rb") as file:
-            pdf_data = file.read()
-
-        st.download_button(
-            label="📑 Download PDF Report",
-            data=pdf_data,
-            file_name="forensic_report.pdf",
-            mime="application/pdf"
-        )
-    else:
-        st.info("PDF report is not available.")
-
-
-# ==========================================
-# FOOTER
-# ==========================================
-
-st.divider()
+st.title("🛡️ Phishing Email Forensic Analysis")
 
 st.caption(
-    "Phishing Email Forensics Project | "
-    "Automated Analysis and Threat Intelligence Correlation"
+    "Automated Phishing Email Forensic Analysis "
+    "and Threat Intelligence Correlation"
 )
+
+
+# ==========================================
+# UPLOAD PHISHING EMAIL
+# ==========================================
+
+st.header("📂 Upload Phishing Email")
+
+uploaded_file = st.file_uploader(
+    "Choose an email file (.eml)",
+    type=["eml"],
+    key="email_uploader"
+)
+
+if uploaded_file is not None:
+    st.success(f"Selected file: {uploaded_file.name}")
+
+    if st.button("🔍 Analyze Email", type="primary"):
+        try:
+            # Save the uploaded email
+            email_path = os.path.join(
+                "samples",
+                "phishing_test.eml"
+            )
+
+            os.makedirs("samples", exist_ok=True)
+            os.makedirs("output", exist_ok=True)
+
+            with open(email_path, "wb") as file:
+                file.write(uploaded_file.getbuffer())
+
+            # ------------------------------------------
+            # ROLE 1 - FORENSIC ANALYSIS
+            # ------------------------------------------
+
+            with st.spinner("Running forensic analysis..."):
+                result = subprocess.run(
+                    [sys.executable, "main.py"],
+                    capture_output=True,
+                    text=True
+                )
+
+                if result.returncode != 0:
+                    st.error("Backend analysis failed.")
+                    st.code(
+                        result.stderr
+                        or result.stdout
+                        or "No error details returned."
+                    )
+                    st.stop()
+
+                if result.stdout:
+                    st.text(result.stdout)
+
+            # ------------------------------------------
+            # ROLE 2 - THREAT INTELLIGENCE
+            # ------------------------------------------
+
+            with st.spinner("Running threat intelligence checks..."):
+                result = subprocess.run(
+                    [
+                        sys.executable,
+                        "threat_intelligence/threat_intelligence.py"
+                    ],
+                    capture_output=True,
+                    text=True
+                )
+
+                if result.returncode != 0:
+                    st.error("Threat intelligence analysis failed.")
+                    st.code(
+                        result.stderr
+                        or result.stdout
+                        or "No error details returned."
+                    )
+                    st.stop()
+
+                if result.stdout:
+                    st.text(result.stdout)
+
+                if result.stderr:
+                    st.code(result.stderr)
+
+            # ------------------------------------------
+            # ROLE 3 - REPORT GENERATION
+            # ------------------------------------------
+
+            with st.spinner("Generating forensic reports..."):
+                result = subprocess.run(
+                    [
