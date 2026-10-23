@@ -126,3 +126,27 @@ if uploaded_file is not None:
             with st.spinner("Generating forensic reports..."):
                 result = subprocess.run(
                     [
+                        sys.executable,
+                        "reporting/report_generator.py",
+                    ],
+                    capture_output=True,
+                    text=True,
+                )
+
+                if result.returncode != 0:
+                    st.error("Report generation failed.")
+                    st.code(
+                        result.stderr
+                        or result.stdout
+                        or "No error details returned."
+                    )
+                    st.stop()
+
+                if result.stdout:
+                    st.text(result.stdout)
+
+                if result.stderr:
+                    st.code(result.stderr)
+
+            st.session_state.analysis_ready = True
+            st.success("Email forensic analysis completed!")
